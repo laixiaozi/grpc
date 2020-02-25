@@ -1,0 +1,50 @@
+syntax = "proto3";
+package pbs;
+// option go_package="17jzh.com/user-service/models";
+message UsersMod{
+     int64 Id = 1;
+     string Member  = 2;  //会员号
+     string Realname  = 3;  //姓名
+     string Headimg  = 4;  //用户头像
+     string Headimg2 = 5;  //用户头像
+     string Mobile  = 6;
+     int32 RoleId = 7;
+     int32 Cid  = 8;     //首次注册渠道
+     int32 IsVip  = 10;
+     int32 Status  = 11;
+     int32 EduType  = 12; //学龄段
+     int32 EduYear  = 13; //入学年份
+     int32 Exp  = 14;      //经验值
+     string LoginAt = 15;
+     string DeviceId = 16;
+     int32 ClientType = 17;
+     string UpdatedAt = 18;
+     string CreatedAt = 19;
+     string DeletedAt = 20;
+
+     int32 SchoolId  = 21;
+     int32 ClassroomId  =22;
+     int32 PlateformId  = 23;
+     int32 IsNotify  = 24;
+     string Openid  = 25;
+     string Nickname  = 26;
+}
+
+message UserId{
+     int32 Id = 1;
+}
+/*根据名称参数处理业务*/
+message UserName{
+     string Name = 1;
+}
+/*处理学校相关的参数*/
+message userEdu{
+     int32 EduType = 1;
+     int32 EduYear = 2;
+}
+
+/*根据unionid查询用户*/
+message UserOpenId{
+     string OpenId = 1;
+     string UnionId = 2;
+}
