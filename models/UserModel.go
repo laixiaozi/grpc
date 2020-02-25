@@ -4,13 +4,19 @@ import (
 	"17jzh.com/user-service/boot"
 	"17jzh.com/user-service/pbs"
 	"17jzh.com/user-service/utility"
+	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"reflect"
+	"time"
 )
 
 /*用户模型*/
 type UserModel struct {
-	ID         int    `gorm:"primary_key" json:"id"`
-	Member     string `json:"member"`   //会员号
+	ID         int64  `gorm:"primary_key" json:"id"`
+	Member     int64  `json:"member"`   //会员号
 	Realname   string `json:"realname"` //姓名
 	Headimg    string `json:"headimg"`  //用户头像
 	Headimg2   string `json:"headimg2"` //用户头像
@@ -43,8 +49,7 @@ func (thisuser *UserModel) GetUserById(tablename string, userId int64) {
 		utility.Debug("获取用户信息失败", err)
 		return
 	}
-	defer boot.MysqlDb.DB.Close()
-	defer  r.Close()
+	defer r.Close()
 	if r.Next() {
 		err = r.Scan(&thisuser.ID, &thisuser.Member, &thisuser.Realname, &thisuser.Headimg,
 			&thisuser.Headimg2, &thisuser.Mobile, &thisuser.RoleId, &thisuser.Cid, &thisuser.IsVip,
@@ -57,28 +62,73 @@ func (thisuser *UserModel) GetUserById(tablename string, userId int64) {
 	}
 }
 
-
-
 /*新增用户*/
-func (thisuser *UserModel)CreateUser()error{
-
-
-
-
+func (thisuser *UserModel) CreateUser(table string) error {
+	sql := fmt.Sprintf("INSERT INTO `%s` (member ,realname ,headimg ,headimg2 ,mobile, "+
+		"role_id, cid, is_vip, status,edu_type ,edu_year ,exp ,login_at ,device_id, client_type ,created_at"+
+		")VALUE(? , ? , ? ,? ,? ,? ,? ,? , ? , ? ,? ,? ,? ,?,?,?)", table)
+	res, err := boot.MysqlDb.DB.Exec(sql, thisuser.Member, thisuser.Realname, thisuser.Headimg, thisuser.Headimg2, thisuser.Mobile,
+		thisuser.RoleId, thisuser.Cid, thisuser.IsVip, thisuser.Status, thisuser.EduType, thisuser.EduYear, thisuser.Exp,
+		thisuser.LoginAt, thisuser.DeviceId, thisuser.ClientType, thisuser.CreatedAt)
+	if err != nil {
+		utility.Debug(err.Error())
+		return err
+	}
+	thisuser.ID, _ = res.LastInsertId()
+	return nil
 }
 
+/**
+* 需要mongodb处理的地方
+ */
+
+/*最大的用户id*/
+func (thisuser *UserModel) GetMaxUserId() int64{
+    var maxid int64 = 0
+	groupStages := bson.D{
+		{"$group", bson.D{
+			{"_id" ,"null"},
+			{"max",bson.D{ {"$max","$id"}}},
+		}},
+	}
+	opt := options.Aggregate().SetMaxTime(5 * time.Second)
+	cur , err := boot.MongoDB.Collection.Aggregate(context.TODO(), mongo.Pipeline{groupStages}, opt )
+	if err != nil{
+		utility.Debug(err)
+		return maxid
+	}
+    var result []bson.M
+	if err := cur.All(context.TODO(),&result); err != nil{
+		utility.Debug(err)
+		return maxid
+	}
+	
+	if len(result) > 0{
+		typeName := reflect.TypeOf(result[0]["max"])
+		fmt.Println(typeName)
+		 maxid  =   int64(result[0]["max"].(int32))
+	}
+	utility.Debug(maxid)
+	return  maxid
+}
+
+/*新增用户信息*/
+func (thisuser *UserModel) MongoCreateUser() error {
+
+	data := bson.M{
+		"id":         123456789,
+		"created_at": time.Now().Format("2006-01-02"),
+		"realname":   "测试写入数据啊哈哈哈",
+	}
+	_, err := boot.MongoDB.Collection.InsertOne(context.Background(), data)
+	return err
+}
 
 //生成grpc需要的数据类型
 func (thisuser *UserModel) ToPb() pbs.UsersMod {
 
 	pbuserMod := pbs.UsersMod{}
-	pbuserMod.Id = int64(thisuser.ID)
-	//pbuserMod.SchoolId = int32(thisuser.SchoolId)
-	//pbuserMod.ClassroomId = int32(thisuser.ClassroomId)
-	//pbuserMod.PlateformId = int32(thisuser.PlateformId)
-	//pbuserMod.IsNotify = int32(thisuser.IsNotify)
-	//pbuserMod.Openid = thisuser.Openid
-	//pbuserMod.Nickname = thisuser.Nickname
+	pbuserMod.Id = thisuser.ID
 	pbuserMod.Member = thisuser.Member
 	pbuserMod.RoleId = int32(thisuser.RoleId)
 	pbuserMod.IsVip = int32(thisuser.IsVip)

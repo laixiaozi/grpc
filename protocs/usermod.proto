@@ -3,7 +3,7 @@ package pbs;
 // option go_package="17jzh.com/user-service/models";
 message UsersMod{
      int64 Id = 1;
-     string Member  = 2;  //会员号
+     int64 Member  = 2;  //会员号
      string Realname  = 3;  //姓名
      string Headimg  = 4;  //用户头像
      string Headimg2 = 5;  //用户头像

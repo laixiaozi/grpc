@@ -25,5 +25,9 @@ func  (s *UserServiceServer)GetUserById(ctx context.Context, Point *pbs.UserId)(
 	userMod := models.UserModel{}
 	userMod.GetUserById(tableName ,userId)
 	usmod := userMod.ToPb()
+	//userMod.MongoCreateUser()
+	userMod.GetMaxUserId()
+
     return  &usmod , nil
 }
+
