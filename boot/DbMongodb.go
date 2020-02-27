@@ -21,7 +21,7 @@ type MongodbInterface struct {
 var OpenMongo = func() {
 	MongoDB = MongodbInterface{}
 	//connectStr := fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", config.MongodbConfig["user"], config.MongodbConfig["pwd"] , config.MongodbConfig["host"] ,
-	connectStr := fmt.Sprintf("mongodb://%s:%d",  config.MongodbConfig["host"] , 	config.MongodbConfig["port"].(int) )
+	connectStr := fmt.Sprintf("mongodb://%s:%d", config.MongodbConfig["host"], config.MongodbConfig["port"].(int))
 	opt := options.Client().ApplyURI(connectStr)
 	opt.SetMaxConnIdleTime(10 * time.Second) // 超时时间
 	opt.SetMaxPoolSize(500)                  //最大连接数
