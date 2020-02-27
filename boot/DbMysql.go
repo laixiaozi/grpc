@@ -2,6 +2,7 @@ package boot
 
 import (
 	"17jzh.com/user-service/config"
+	"17jzh.com/user-service/utility"
 	"context"
 	"database/sql"
 	"fmt"
@@ -18,16 +19,15 @@ type MysqlInterface struct {
 	Ctx     context.Context
 }
 
-
 /*初始化mysql链接数据库*/
 var OpenMysql = func() {
 	MysqlDb = MysqlInterface{}
 	constr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", config.MysqlConfig["user"], config.MysqlConfig["pwd"], config.MysqlConfig["host"],
 		config.MysqlConfig["port"].(int), config.MysqlConfig["database"], config.MysqlConfig["option"])
 	db, err := sql.Open("mysql", constr)
-	fmt.Println(constr)
 	if err != nil {
 		MysqlDb.OpenErr = err
+		utility.Abort("连接到mysql 失败:" + err.Error())
 	}
 	//defer db.Close()
 	MysqlDb.DB = db
@@ -35,8 +35,7 @@ var OpenMysql = func() {
 	MysqlDb.DB.SetMaxIdleConns(500) //连接池中最大连接数
 }
 
-func (thisdb *MysqlInterface) Start() error {
+func (thisdb *MysqlInterface) Start() {
 	var once sync.Once
 	once.Do(OpenMysql)
-	return nil
 }
