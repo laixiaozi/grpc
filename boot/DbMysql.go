@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"17jzh.com/user-service/config"
 	"context"
 	"database/sql"
 	"fmt"
@@ -8,8 +9,7 @@ import (
 	"sync"
 )
 
-
-var MysqlDb *MysqlInterface
+var MysqlDb MysqlInterface
 
 /*mysql数据库链接*/
 type MysqlInterface struct {
@@ -18,14 +18,15 @@ type MysqlInterface struct {
 	Ctx     context.Context
 }
 
-const DB_URL string = "root:123456@tcp(localhost:3306)/jzh-dev?charset=utf8mb4&parseTime=True&loc=Local&allowNativePasswords=true"
 
 /*初始化mysql链接数据库*/
-var OpenMysql= func() {
-	MysqlDb = &MysqlInterface{}
-	db, err := sql.Open("mysql", DB_URL)
+var OpenMysql = func() {
+	MysqlDb = MysqlInterface{}
+	constr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", config.MysqlConfig["user"], config.MysqlConfig["pwd"], config.MysqlConfig["host"],
+		config.MysqlConfig["port"].(int), config.MysqlConfig["database"], config.MysqlConfig["option"])
+	db, err := sql.Open("mysql", constr)
+	fmt.Println(constr)
 	if err != nil {
-		fmt.Println("打开数据库错误", err)
 		MysqlDb.OpenErr = err
 	}
 	//defer db.Close()
@@ -34,11 +35,8 @@ var OpenMysql= func() {
 	MysqlDb.DB.SetMaxIdleConns(500) //连接池中最大连接数
 }
 
-
 func (thisdb *MysqlInterface) Start() error {
 	var once sync.Once
 	once.Do(OpenMysql)
 	return nil
 }
-
-

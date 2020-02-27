@@ -9,7 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"reflect"
 	"time"
 )
 
@@ -36,11 +35,11 @@ type UserModel struct {
 	DeletedAt  string `json:"deleted_at"`
 }
 
+///////////////////// mysql //////////////////////////////////
 /*
  根据表名称获取用户信息
 */
 func (thisuser *UserModel) GetUserById(tablename string, userId int64) {
-	utility.Err()
 	sql := fmt.Sprintf("SELECT id ,member ,realname ,headimg ,headimg2 ,mobile, "+
 		"role_id, cid, is_vip, status,edu_type ,edu_year ,exp ,login_at ,device_id, client_type  "+
 		" FROM `%s` WHERE id= '%d'", tablename, userId) //updated_at , created_at , deleted_at
@@ -78,39 +77,44 @@ func (thisuser *UserModel) CreateUser(table string) error {
 	return nil
 }
 
-/**
-* 需要mongodb处理的地方
- */
+///////////////////// mongodb //////////////////////////////////
 
 /*最大的用户id*/
-func (thisuser *UserModel) GetMaxUserId() int64{
-    var maxid int64 = 0
+func (thisuser *UserModel) GetMaxUserIdByMongo() int64 {
+	var maxid int64 = 0
 	groupStages := bson.D{
 		{"$group", bson.D{
-			{"_id" ,"null"},
-			{"max",bson.D{ {"$max","$id"}}},
+			{"_id", "null"},
+			{"max", bson.D{{"$max", "$id"}}},
 		}},
 	}
 	opt := options.Aggregate().SetMaxTime(5 * time.Second)
-	cur , err := boot.MongoDB.Collection.Aggregate(context.TODO(), mongo.Pipeline{groupStages}, opt )
-	if err != nil{
+	cur, err := boot.MongoDB.Collection.Aggregate(context.TODO(), mongo.Pipeline{groupStages}, opt)
+	if err != nil {
 		utility.Debug(err)
 		return maxid
 	}
-    var result []bson.M
-	if err := cur.All(context.TODO(),&result); err != nil{
+	var result []bson.M
+	if err := cur.All(context.TODO(), &result); err != nil {
 		utility.Debug(err)
 		return maxid
 	}
-	
-	if len(result) > 0{
-		typeName := reflect.TypeOf(result[0]["max"])
-		fmt.Println(typeName)
-		 maxid  =   int64(result[0]["max"].(int32))
+
+	if len(result) > 0 {
+		maxid = utility.GetInt64(result[0]["max"])
 	}
-	utility.Debug(maxid)
-	return  maxid
+	return maxid
 }
+
+///////////////////// reids  //////////////////////////////////
+
+func (thisuser *UserModel) GetMaxUserIdByRedis() int64 {
+	var maxid int64 = 0
+
+	return maxid
+}
+
+///////////////////// //////////////////////////////////
 
 /*新增用户信息*/
 func (thisuser *UserModel) MongoCreateUser() error {

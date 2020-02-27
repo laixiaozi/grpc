@@ -6,7 +6,7 @@ import "fmt"
 根绝 id 获取用户表名称
 */
 const (
-	tableNum    int    = 16      //分表个数
+	tableNum    int    = 16       //分表个数
 	tablePrefix string = "users_" //表前缀
 )
 

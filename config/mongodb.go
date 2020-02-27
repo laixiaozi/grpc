@@ -8,3 +8,12 @@ const (
 	MONGODB_DBCOLLECTION_USERS string = "users"
 	MONGODB_DBPORT             int    = 27017
 )
+
+var MongodbConfig map[string]interface{} = map[string]interface{}{
+	"host":       "localhost",
+	"user":       "nxdev",
+	"pwd":        "123456",
+	"port":       27017,
+	"database":   "nxdev",
+	"collection": "users",
+}

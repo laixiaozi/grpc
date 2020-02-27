@@ -18,7 +18,6 @@ func init() {
 	boot.MysqlDb.Start()
 	boot.MongoDB.Start()
 }
-
 func main() {
 	lis, err := net.Listen("tcp", SERVER_PORT)
 	if err != nil {
