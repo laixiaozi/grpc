@@ -6,6 +6,7 @@ import (
 	"17jzh.com/user-service/pbs"
 	"17jzh.com/user-service/utility"
 	"context"
+	"encoding/json"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -36,6 +37,7 @@ type UserModel struct {
 	DeletedAt  string `json:"deleted_at"`
 }
 
+//查找最大的用户id
 func (thisuser *UserModel) GetMaxUserId() int64 {
 	var maxUserId int64 = 0
 	maxUserId, err := thisuser.RedisGetMaxUserId()
@@ -44,6 +46,42 @@ func (thisuser *UserModel) GetMaxUserId() int64 {
 		maxUserId = thisuser.MongoGetMaxUserId()
 	}
 	return maxUserId
+}
+
+// 添加新用户,返回用户信息
+func (thisuser *UserModel) CreateUser() int64 {
+	f := func() int64 {
+		if thisuser.RedisIsLock() {
+			for {
+				if !thisuser.RedisIsLock() {
+					goto getMax
+				}
+			}
+		}
+	getMax:
+		thisuser.RedisLock()
+		maxUserId := thisuser.GetMaxUserId()
+		maxUserId++
+		tableName := utility.GetTableNameByUserId(maxUserId)
+		thisuser.LoginAt = utility.NowStr()
+		thisuser.CreatedAt = utility.NowStr()
+		thisuser.ID = maxUserId
+		if err := thisuser.MysqlCreateUser(tableName); err != nil {
+			utility.Debug("mysql :创建新用户失败", err)
+			return 0
+		}
+		if err := thisuser.MongoCreateUser(); err != nil {
+			// todo 删除mysql的数据
+			utility.Debug("mongodb 创建用户信息失败", err)
+			return 0
+		}
+		//更新最大用户id
+		thisuser.RedisSetMaxUserId(maxUserId)
+		thisuser.RedisUnLock()
+		return maxUserId
+	}
+	f()
+	return thisuser.ID
 }
 
 ///////////////////// mysql //////////////////////////////////
@@ -81,10 +119,10 @@ func (thisuser *UserModel) MysqlGetUserById(userId int64) {
 
 /*新增用户*/
 func (thisuser *UserModel) MysqlCreateUser(table string) error {
-	sql := fmt.Sprintf("INSERT INTO `%s` (member ,realname ,headimg ,headimg2 ,mobile, "+
+	sql := fmt.Sprintf("INSERT INTO `%s` (id , member ,realname ,headimg ,headimg2 ,mobile, "+
 		"role_id, cid, is_vip, status,edu_type ,edu_year ,exp ,login_at ,device_id, client_type ,created_at"+
-		")VALUE(? , ? , ? ,? ,? ,? ,? ,? , ? , ? ,? ,? ,? ,?,?,?)", table)
-	res, err := boot.MysqlDb.DB.Exec(sql, thisuser.Member, thisuser.Realname, thisuser.Headimg, thisuser.Headimg2, thisuser.Mobile,
+		")VALUE(? , ? ,? , ? ,? ,? ,? ,? ,? , ? , ? ,? ,? ,? ,?,?,?)", table)
+	res, err := boot.MysqlDb.DB.Exec(sql, thisuser.ID, thisuser.Member, thisuser.Realname, thisuser.Headimg, thisuser.Headimg2, thisuser.Mobile,
 		thisuser.RoleId, thisuser.Cid, thisuser.IsVip, thisuser.Status, thisuser.EduType, thisuser.EduYear, thisuser.Exp,
 		thisuser.LoginAt, thisuser.DeviceId, thisuser.ClientType, thisuser.CreatedAt)
 	if err != nil {
@@ -152,12 +190,76 @@ func (thisuser *UserModel) MongoCreateUser() error {
 ///////////////////// reids  //////////////////////////////////
 
 func (thisuser *UserModel) RedisGetMaxUserId() (int64, error) {
-	return boot.RedisDb.Client.Get(config.REDIS_USER_MAXID).Int64()
+	MaxId, err := boot.RedisDb.Client.Get(config.REDIS_USER_MAXID).Int64()
+	return MaxId, err
+}
+
+func (thisuser *UserModel) RedisSetMaxUserId(maxUserId int64) error {
+	string, err := boot.RedisDb.Client.Set(config.REDIS_USER_MAXID, maxUserId, -1).Result()
+	utility.Debug(string)
+	return err
+}
+
+func (thisuser *UserModel) RedisLock() {
+	ok, err := boot.RedisDb.Client.Set(config.REDIS_LOCK_STATUS, config.REDIS_LOCK_VALUE, config.REDIS_EXP_FOREVER).Result()
+	utility.Debug("已加锁:", ok, "err:", err)
+}
+
+func (thisuser *UserModel) RedisUnLock() {
+	ok, err := boot.RedisDb.Client.Set(config.REDIS_LOCK_STATUS, config.REDIS_UNLOCK_VALUE, config.REDIS_EXP_FOREVER).Result()
+	utility.Debug("已解锁:", ok, "err:", err)
+}
+
+func (thisuser *UserModel) RedisIsLock() bool {
+	isLock, err := boot.RedisDb.Client.Get(config.REDIS_LOCK_STATUS).Int64()
+	if err != nil {
+		utility.Debug("获取redis锁失败:", err)
+		ok, err := boot.RedisDb.Client.Set(config.REDIS_LOCK_STATUS, config.REDIS_UNLOCK_VALUE, config.REDIS_EXP_FOREVER).Result()
+		utility.Debug("新增锁定状态:", ok, "err:", err)
+	}
+	return isLock == int64(config.REDIS_LOCK_VALUE) //1 锁定状态 0 未锁定状态
+}
+
+/*加入用户注册信息到队列里面*/
+func (thisuser *UserModel) RedisJoinList() bool {
+	d, err := json.Marshal(thisuser)
+	if err != nil {
+		utility.Debug("用户加入队列失败", err)
+		return false
+	}
+	n, err := boot.RedisDb.Client.LPush(config.REDIS_USER_LIST, d).Result()
+	if err != nil {
+		utility.Debug("用户加入队列失败", err)
+		return false
+	}
+	utility.Debug(n)
+	return false
+}
+
+/*消费到队列里面*/
+func (thisuser *UserModel) RedisConsumList() {
+      n , err := boot.RedisDb.Client.LLen(config.REDIS_USER_LIST).Result()
+      if err != nil{
+      	utility.Debug("获取用户队列失败", err)
+		  return
+	  }
+	  utility.Debug("当前队列中的用户数量:" , n)
+      for i:=0; int64(i) < n ; i++{
+      	 userdata := boot.RedisDb.Client.RPop(config.REDIS_USER_LIST).String()
+      	 utility.Debug(userdata)
+      	 umod := UserModel{}
+      	 err := json.Unmarshal([]byte(userdata) , umod)
+      	 if err != nil{
+      	 	continue
+		 }
+		 //todo 写入数据
+	  }
 }
 
 ///////////////////// //////////////////////////////////
 
 //生成grpc需要的数据类型
+/*学校,昵称,等属性需要单独取*/
 func (thisuser *UserModel) ToPb() pbs.UsersMod {
 
 	pbuserMod := pbs.UsersMod{}
@@ -174,4 +276,21 @@ func (thisuser *UserModel) ToPb() pbs.UsersMod {
 	pbuserMod.Mobile = thisuser.Mobile
 	pbuserMod.Headimg = thisuser.Headimg
 	return pbuserMod
+}
+
+/*学校,昵称,等属性需要单独取*/
+func (thisuser *UserModel) PbToMod(pbuserMod pbs.UsersMod) {
+
+	thisuser.ID = pbuserMod.Id
+	thisuser.Member = pbuserMod.Member
+	thisuser.RoleId = int(pbuserMod.RoleId)
+	thisuser.IsVip = int(pbuserMod.IsVip)
+	thisuser.Status = int(pbuserMod.Status)
+	thisuser.EduType = int(pbuserMod.EduType)
+	thisuser.EduYear = int(pbuserMod.EduYear)
+	thisuser.Exp = int(pbuserMod.Exp)
+	thisuser.Cid = int(pbuserMod.Cid)
+	thisuser.Realname = pbuserMod.Realname
+	thisuser.Mobile = pbuserMod.Mobile
+	thisuser.Headimg = pbuserMod.Headimg
 }

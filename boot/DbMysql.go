@@ -32,9 +32,9 @@ var OpenMysql = func() {
 	}
 	//defer db.Close()  //db不应被关闭,会阻止新的连接和新的回话查询
 	MysqlDb.DB = db
-	MysqlDb.DB.SetMaxOpenConns(500) //连接池中的最大打开连接数
-	MysqlDb.DB.SetMaxIdleConns(500) //连接池中最大连接数
-	if err := MysqlDb.DB.Ping(); err != nil{
+	MysqlDb.DB.SetMaxOpenConns(config.MysqlConfig["maxConn"].(int)) //连接池中的最大打开连接数
+	MysqlDb.DB.SetMaxIdleConns(config.MysqlConfig["maxOpen"].(int)) //连接池中最大连接数
+	if err := MysqlDb.DB.Ping(); err != nil {
 		utility.Abort("连接数据库失败", err)
 	}
 
@@ -57,7 +57,7 @@ func (thisdb *MysqlInterface) Start() {
    conn.QueryContext(context.TODO() ,sql)
   defer conn.Close() //释放连接
 */
-func (thisdb *MysqlInterface) NewConn(ctx context.Context)( *sql.Conn ,  error) {
-	Conn , err := thisdb.DB.Conn(ctx)
+func (thisdb *MysqlInterface) NewConn(ctx context.Context) (*sql.Conn, error) {
+	Conn, err := thisdb.DB.Conn(ctx)
 	return Conn, err
 }

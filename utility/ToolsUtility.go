@@ -2,7 +2,9 @@ package utility
 
 import (
 	"fmt"
+	"math/rand"
 	"reflect"
+	"time"
 )
 
 func ReflectStruct(i interface{}) []interface{} {
@@ -38,4 +40,16 @@ func GetInt64(n interface{}) int64 {
 		r = int64(n.(byte))
 	}
 	return r
+}
+
+func GetRandNum(num ...int64) int64 {
+	var min, max int64 = 0, 0
+	if len(num) == 1 {
+		max = num[0]
+	} else {
+		min = num[0]
+		max = num[1]
+	}
+	rand.Seed(time.Now().UnixNano())
+	return rand.Int63n(max-min+1) + min
 }
