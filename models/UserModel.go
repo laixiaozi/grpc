@@ -58,7 +58,7 @@ func (thisuser *UserModel) MysqlGetUserById(userId int64) {
 	sql := fmt.Sprintf("SELECT id ,member ,realname ,headimg ,headimg2 ,mobile, "+
 		"role_id, cid, is_vip, status,edu_type ,edu_year ,exp ,login_at ,device_id, client_type  "+
 		" FROM `%s` WHERE id= '%d'", tableName, userId) //updated_at , created_at , deleted_at
-	r, err := boot.MysqlDb.DB.Query(sql)
+	r, err := boot.MysqlDb.DB.QueryContext(context.TODO() ,sql)
 	if err != nil || r == nil || r.Err() != nil {
 		utility.Debug("获取用户信息失败", err)
 		return
@@ -150,7 +150,6 @@ func (thisuser *UserModel) MongoCreateUser() error {
 ///////////////////// reids  //////////////////////////////////
 
 func (thisuser *UserModel) RedisGetMaxUserId() (int64, error) {
-
 	return boot.RedisDb.Client.Get(config.REDIS_USER_MAXID).Int64()
 }
 

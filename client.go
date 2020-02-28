@@ -2,6 +2,7 @@ package main
 
 import (
 	"17jzh.com/user-service/pbs"
+	"17jzh.com/user-service/utility"
 	"context"
 	"fmt"
 	"google.golang.org/grpc"
@@ -9,7 +10,26 @@ import (
 )
 
 func main() {
-	fmt.Println("grpc 客户端连接")
+	ch := make(chan int)
+	t := 500   //创建几个并发
+	f := func(uid int32 ,  i int ) {
+		RpcClient(uid)
+		ch <- i
+	}
+
+	for i := 0; i < t; i++ {
+		go f(3751926 , i)
+	}
+	for i := 0; i < t; i++ {
+		<- ch
+		//utility.Debug("ch : ", <-ch)
+	}
+	utility.Debug("the end..")
+
+}
+
+
+func RpcClient(uid int32){
 	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		fmt.Println("链接错误", err)
@@ -19,9 +39,9 @@ func main() {
 	c := pbs.NewUserServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if r, err := c.GetUserById(ctx, &pbs.UserId{Id: 3751926}); err != nil {
-		fmt.Println("gprc 请求失败")
+	if r, err := c.GetUserById(ctx, &pbs.UserId{Id: uid}); err != nil {
+		utility.Debug("gprc 请求失败")
 	} else {
-		fmt.Println(r)
+		utility.Debug(r.Realname)
 	}
 }

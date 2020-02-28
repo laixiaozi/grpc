@@ -10,6 +10,9 @@ service UserService{
     /*根据id获取用户信息*/
     rpc GetUserById(pbs.UserId) returns (pbs.UsersMod){}
 
+    /*一个测试方法,用来测试逻辑*/
+    rpc Test(pbs.UsersMod) returns (pbs.UsersMod){}
+
     //添加用户
 //    rpc CreateUser(pbs.UsersMod) returns (pbs.UserId){}
 }

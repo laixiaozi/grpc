@@ -21,9 +21,12 @@ func (s *UserServiceServer) GetUserById(ctx context.Context, Point *pbs.UserId) 
 	userId := int64(Point.Id)
 	userMod := models.UserModel{}
 	userMod.MysqlGetUserById(userId)
+	userMod.GetMaxUserId()
 	usmod := userMod.ToPb()
-	//以下为测试方法,不能在本业务中使用
-
-	//以上为测试代码,不能在本业务中使用
+	return &usmod, nil
+}
+func (s *UserServiceServer) Test(ctx context.Context, Point *pbs.UsersMod) (*pbs.UsersMod, error) {
+	userMod := models.UserModel{}
+	usmod := userMod.ToPb()
 	return &usmod, nil
 }
