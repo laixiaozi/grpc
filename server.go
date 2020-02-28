@@ -14,9 +14,10 @@ func init() {
 	boot.MysqlDb.Start()
 	boot.MongoDB.Start()
 	boot.RedisDb.Start()
-	utility.Debug("启动grpc服务...")
+
 }
 func main() {
+	utility.Debug("启动grpc服务...")
 	lis, err := net.Listen("tcp", config.SERVER_PORT)
 	if err != nil {
 		utility.Abort("无法启动服务监听", err)

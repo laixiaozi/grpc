@@ -31,7 +31,6 @@ var OpenMysql = func() {
 		utility.Abort("连接到mysql 失败:" + err.Error())
 	}
 	//defer db.Close()  //db不应被关闭,会阻止新的连接和新的回话查询
-
 	MysqlDb.DB = db
 	MysqlDb.DB.SetMaxOpenConns(500) //连接池中的最大打开连接数
 	MysqlDb.DB.SetMaxIdleConns(500) //连接池中最大连接数

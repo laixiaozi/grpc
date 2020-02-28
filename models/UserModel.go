@@ -46,9 +46,6 @@ func (thisuser *UserModel) GetMaxUserId() int64 {
 	return maxUserId
 }
 
-
-
-
 ///////////////////// mysql //////////////////////////////////
 /*
  根据表名称获取用户信息
@@ -58,7 +55,13 @@ func (thisuser *UserModel) MysqlGetUserById(userId int64) {
 	sql := fmt.Sprintf("SELECT id ,member ,realname ,headimg ,headimg2 ,mobile, "+
 		"role_id, cid, is_vip, status,edu_type ,edu_year ,exp ,login_at ,device_id, client_type  "+
 		" FROM `%s` WHERE id= '%d'", tableName, userId) //updated_at , created_at , deleted_at
-	r, err := boot.MysqlDb.DB.QueryContext(context.TODO() ,sql)
+	conn, err := boot.MysqlDb.DB.Conn(context.TODO())
+	if err != nil {
+		utility.Debug(err)
+		return
+	}
+	defer conn.Close()
+	r, err := conn.QueryContext(context.Background(), sql)
 	if err != nil || r == nil || r.Err() != nil {
 		utility.Debug("获取用户信息失败", err)
 		return
@@ -146,7 +149,6 @@ func (thisuser *UserModel) MongoCreateUser() error {
 	return err
 }
 
-
 ///////////////////// reids  //////////////////////////////////
 
 func (thisuser *UserModel) RedisGetMaxUserId() (int64, error) {
@@ -154,7 +156,6 @@ func (thisuser *UserModel) RedisGetMaxUserId() (int64, error) {
 }
 
 ///////////////////// //////////////////////////////////
-
 
 //生成grpc需要的数据类型
 func (thisuser *UserModel) ToPb() pbs.UsersMod {
