@@ -51,7 +51,7 @@ func RpcClient() {
 	defer cancel()
 	usmod := GetUserMod()
 	if r, err := c.Test(ctx, &usmod); err != nil {
-		utility.Debug("gprc 请求失败")
+		utility.Debug("gprc 请求失败" , err)
 	} else {
 		utility.Debug(r.Member, r.Id)
 	}
@@ -65,7 +65,7 @@ func GetUserById(uid int32) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second * 10)
 	defer cancel()
 	if r, err := c.GetUserById(ctx, &pbs.UserId{Id: uid}); err != nil {
-		utility.Debug("gprc 请求失败")
+		utility.Debug("gprc 请求失败" , err)
 	} else {
 		utility.Debug(r.Realname, r.Id)
 	}

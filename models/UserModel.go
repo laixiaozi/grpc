@@ -50,37 +50,35 @@ func (thisuser *UserModel) GetMaxUserId() int64 {
 
 // 添加新用户,返回用户信息
 func (thisuser *UserModel) CreateUser() int64 {
-	f := func() int64 {
-		if thisuser.RedisIsLock() {
-			for {
-				if !thisuser.RedisIsLock() {
-					goto getMax
-				}
-			}
-		}
-	getMax:
-		thisuser.RedisLock()
-		maxUserId := thisuser.GetMaxUserId()
-		maxUserId++
+
+	do := func( maxUserId int64) {
 		tableName := utility.GetTableNameByUserId(maxUserId)
 		thisuser.LoginAt = utility.NowStr()
 		thisuser.CreatedAt = utility.NowStr()
 		thisuser.ID = maxUserId
 		if err := thisuser.MysqlCreateUser(tableName); err != nil {
 			utility.Debug("mysql :创建新用户失败", err)
-			return 0
+			return
 		}
 		if err := thisuser.MongoCreateUser(); err != nil {
 			// todo 删除mysql的数据
 			utility.Debug("mongodb 创建用户信息失败", err)
-			return 0
+			return
 		}
+	}
+	f := func() int64 {
 		//更新最大用户id
-		thisuser.RedisSetMaxUserId(maxUserId)
-		thisuser.RedisUnLock()
+		maxUserId , _ := thisuser.RedisMaxUserIdIncr()
+		thisuser.ID = maxUserId
+		thisuser.CreatedAt = utility.NowStr()
+		thisuser.LoginAt = utility.NowStr()
+
 		return maxUserId
 	}
-	f()
+	//写入数据
+	maxUserId := f()
+	do(maxUserId)
+
 	return thisuser.ID
 }
 
@@ -122,6 +120,7 @@ func (thisuser *UserModel) MysqlCreateUser(table string) error {
 	sql := fmt.Sprintf("INSERT INTO `%s` (id , member ,realname ,headimg ,headimg2 ,mobile, "+
 		"role_id, cid, is_vip, status,edu_type ,edu_year ,exp ,login_at ,device_id, client_type ,created_at"+
 		")VALUE(? , ? ,? , ? ,? ,? ,? ,? ,? , ? , ? ,? ,? ,? ,?,?,?)", table)
+	utility.Debug("当前写入表格:" , table , "写入id", thisuser.ID)
 	res, err := boot.MysqlDb.DB.Exec(sql, thisuser.ID, thisuser.Member, thisuser.Realname, thisuser.Headimg, thisuser.Headimg2, thisuser.Mobile,
 		thisuser.RoleId, thisuser.Cid, thisuser.IsVip, thisuser.Status, thisuser.EduType, thisuser.EduYear, thisuser.Exp,
 		thisuser.LoginAt, thisuser.DeviceId, thisuser.ClientType, thisuser.CreatedAt)
@@ -200,6 +199,10 @@ func (thisuser *UserModel) RedisSetMaxUserId(maxUserId int64) error {
 	return err
 }
 
+func (thisuser *UserModel) RedisMaxUserIdIncr() (int64, error) {
+	return  boot.RedisDb.Client.Incr(config.REDIS_USER_MAXID).Result()
+}
+
 func (thisuser *UserModel) RedisLock() {
 	ok, err := boot.RedisDb.Client.Set(config.REDIS_LOCK_STATUS, config.REDIS_LOCK_VALUE, config.REDIS_EXP_FOREVER).Result()
 	utility.Debug("已加锁:", ok, "err:", err)
@@ -238,22 +241,27 @@ func (thisuser *UserModel) RedisJoinList() bool {
 
 /*消费到队列里面*/
 func (thisuser *UserModel) RedisConsumList() {
-      n , err := boot.RedisDb.Client.LLen(config.REDIS_USER_LIST).Result()
-      if err != nil{
-      	utility.Debug("获取用户队列失败", err)
-		  return
-	  }
-	  utility.Debug("当前队列中的用户数量:" , n)
-      for i:=0; int64(i) < n ; i++{
-      	 userdata := boot.RedisDb.Client.RPop(config.REDIS_USER_LIST).String()
-      	 utility.Debug(userdata)
-      	 umod := UserModel{}
-      	 err := json.Unmarshal([]byte(userdata) , umod)
-      	 if err != nil{
-      	 	continue
-		 }
-		 //todo 写入数据
-	  }
+
+
+
+	n, err := boot.RedisDb.Client.LLen(config.REDIS_USER_LIST).Result()
+	if err != nil {
+		utility.Debug("获取用户队列失败", err)
+		return
+	}
+	utility.Debug("当前队列中的用户数量:", n)
+	for i := 0; int64(i) < n; i++ {
+		userdata := boot.RedisDb.Client.RPop(config.REDIS_USER_LIST).String()
+		utility.Debug(userdata)
+		umod := UserModel{}
+		err := json.Unmarshal([]byte(userdata), umod)
+		if err != nil {
+			continue
+		}
+		//todo 写入数据
+		utility.Debug("当前消费用户的id:", umod.ID)
+
+	}
 }
 
 ///////////////////// //////////////////////////////////
