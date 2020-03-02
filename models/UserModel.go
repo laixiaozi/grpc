@@ -82,7 +82,7 @@ func (thisuser *UserModel) CreateUser() int64 {
 
 // 更新用户信息
 func (thisuser *UserModel) UpDateUser() (int64, error) {
-	utility.Debug("修改用户信息")
+
 	OldUser := &UserModel{ID: thisuser.ID}
 	if err := OldUser.MysqlGetUserById(); err != nil {
 		utility.Debug(" 获取用户当前信息失败", err)
@@ -93,10 +93,12 @@ func (thisuser *UserModel) UpDateUser() (int64, error) {
 		return r, e
 	}
 	//todo 更新mongodb
-
+	if err := thisuser.MongoUpdateUser(); err != nil {
+		// 回退mysql的数据
+		r, e = OldUser.MysqlUpdateUser()
+	}
 	return r, e
 }
-
 
 ///////////////////// mysql //////////////////////////////////
 /*
@@ -188,7 +190,6 @@ func (thisuser *UserModel) MysqlUpdateUser() (int64, error) {
 	return res.RowsAffected()
 }
 
-
 ///////////////////// mongodb //////////////////////////////////
 
 /*最大的用户id*/
@@ -240,6 +241,40 @@ func (thisuser *UserModel) MongoCreateUser() error {
 		"created_at":  thisuser.CreatedAt,
 	}
 	_, err := boot.MongoDB.Collection.InsertOne(context.Background(), data)
+	return err
+}
+
+/*新增用户信息*/
+func (thisuser *UserModel) MongoUpdateUser() error {
+
+	data := bson.D{
+		{
+			"$set",
+			bson.D{
+				{"member", thisuser.Member},
+				{"realname", thisuser.Realname},
+				{"headimg", thisuser.Headimg},
+				{"headimg2", thisuser.Headimg2},
+				{"mobile", thisuser.Mobile},
+				{"role_id", thisuser.RoleId},
+				{"cid", thisuser.Cid},
+				{"is_vip", thisuser.IsVip},
+				{"status", thisuser.Status},
+				{"edu_type", thisuser.EduType},
+				{"edu_year", thisuser.EduYear},
+				{"exp", thisuser.Exp},
+				{"login_at", thisuser.LoginAt},
+				{"device_id", thisuser.DeviceId},
+				{"client_type", thisuser.ClientType},
+				{"created_at", thisuser.CreatedAt},
+			},
+		},
+	}
+	where := bson.D{
+		{"id", thisuser.ID},
+	}
+	_, err := boot.MongoDB.Collection.UpdateOne(context.TODO(), where, data)
+	utility.Debug("更新mongo数据", err)
 	return err
 }
 
