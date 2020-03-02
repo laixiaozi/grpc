@@ -50,29 +50,27 @@ func (thisuser *UserModel) GetMaxUserId() int64 {
 
 // 添加新用户,返回用户信息
 func (thisuser *UserModel) CreateUser() int64 {
-
-	do := func( maxUserId int64) {
-		tableName := utility.GetTableNameByUserId(maxUserId)
+	do := func(maxUserId int64) {
 		thisuser.LoginAt = utility.NowStr()
 		thisuser.CreatedAt = utility.NowStr()
 		thisuser.ID = maxUserId
-		if err := thisuser.MysqlCreateUser(tableName); err != nil {
+		if err := thisuser.MysqlCreateUser(); err != nil {
 			utility.Debug("mysql :创建新用户失败", err)
 			return
 		}
 		if err := thisuser.MongoCreateUser(); err != nil {
 			// todo 删除mysql的数据
+			thisuser.MysqlDelUser()
 			utility.Debug("mongodb 创建用户信息失败", err)
 			return
 		}
 	}
 	f := func() int64 {
 		//更新最大用户id
-		maxUserId , _ := thisuser.RedisMaxUserIdIncr()
+		maxUserId, _ := thisuser.RedisMaxUserIdIncr()
 		thisuser.ID = maxUserId
 		thisuser.CreatedAt = utility.NowStr()
 		thisuser.LoginAt = utility.NowStr()
-
 		return maxUserId
 	}
 	//写入数据
@@ -82,25 +80,43 @@ func (thisuser *UserModel) CreateUser() int64 {
 	return thisuser.ID
 }
 
+// 更新用户信息
+func (thisuser *UserModel) UpDateUser() (int64, error) {
+	utility.Debug("修改用户信息")
+	OldUser := &UserModel{ID: thisuser.ID}
+	if err := OldUser.MysqlGetUserById(); err != nil {
+		utility.Debug(" 获取用户当前信息失败", err)
+		return -1, err
+	}
+	r, e := thisuser.MysqlUpdateUser()
+	if e != nil {
+		return r, e
+	}
+	//todo 更新mongodb
+
+	return r, e
+}
+
+
 ///////////////////// mysql //////////////////////////////////
 /*
  根据表名称获取用户信息
 */
-func (thisuser *UserModel) MysqlGetUserById(userId int64) {
-	tableName := utility.GetTableNameByUserId(userId)
+func (thisuser *UserModel) MysqlGetUserById() error {
+	tableName := utility.GetTableNameByUserId(thisuser.ID)
 	sql := fmt.Sprintf("SELECT id ,member ,realname ,headimg ,headimg2 ,mobile, "+
 		"role_id, cid, is_vip, status,edu_type ,edu_year ,exp ,login_at ,device_id, client_type  "+
-		" FROM `%s` WHERE id= '%d'", tableName, userId) //updated_at , created_at , deleted_at
+		" FROM `%s` WHERE id= '%d'", tableName, thisuser.ID) //updated_at , created_at , deleted_at
 	conn, err := boot.MysqlDb.DB.Conn(context.TODO())
 	if err != nil {
 		utility.Debug(err)
-		return
+		return err
 	}
 	defer conn.Close()
 	r, err := conn.QueryContext(context.Background(), sql)
 	if err != nil || r == nil || r.Err() != nil {
 		utility.Debug("获取用户信息失败", err)
-		return
+		return err
 	}
 	defer r.Close()
 	if r.Next() {
@@ -110,17 +126,18 @@ func (thisuser *UserModel) MysqlGetUserById(userId int64) {
 			&thisuser.DeviceId, &thisuser.ClientType) //, &thisuser.UpdatedAt, &thisuser.CreatedAt, &thisuser.DeletedAt
 		if err != nil {
 			utility.Debug(err)
-			return
+			return err
 		}
 	}
+	return nil
 }
 
 /*新增用户*/
-func (thisuser *UserModel) MysqlCreateUser(table string) error {
+func (thisuser *UserModel) MysqlCreateUser() error {
+	table := utility.GetTableNameByUserId(thisuser.ID)
 	sql := fmt.Sprintf("INSERT INTO `%s` (id , member ,realname ,headimg ,headimg2 ,mobile, "+
 		"role_id, cid, is_vip, status,edu_type ,edu_year ,exp ,login_at ,device_id, client_type ,created_at"+
 		")VALUE(? , ? ,? , ? ,? ,? ,? ,? ,? , ? , ? ,? ,? ,? ,?,?,?)", table)
-	utility.Debug("当前写入表格:" , table , "写入id", thisuser.ID)
 	res, err := boot.MysqlDb.DB.Exec(sql, thisuser.ID, thisuser.Member, thisuser.Realname, thisuser.Headimg, thisuser.Headimg2, thisuser.Mobile,
 		thisuser.RoleId, thisuser.Cid, thisuser.IsVip, thisuser.Status, thisuser.EduType, thisuser.EduYear, thisuser.Exp,
 		thisuser.LoginAt, thisuser.DeviceId, thisuser.ClientType, thisuser.CreatedAt)
@@ -131,6 +148,46 @@ func (thisuser *UserModel) MysqlCreateUser(table string) error {
 	thisuser.ID, _ = res.LastInsertId()
 	return nil
 }
+
+/*
+ 删除用户信息
+*/
+func (thisuser *UserModel) MysqlDelUser() (int64, error) {
+	table := utility.GetTableNameByUserId(thisuser.ID)
+	sql := fmt.Sprintf("DELETE FROM  `%s` WHERE id  = %d", table, thisuser.ID)
+	res, err := boot.MysqlDb.DB.Exec(sql)
+	if err != nil {
+		utility.Debug(err.Error())
+		return -1, err
+	}
+	return res.RowsAffected()
+}
+
+/*更新用户信息*/
+func (thisuser *UserModel) MysqlUpdateUser() (int64, error) {
+	table := utility.GetTableNameByUserId(thisuser.ID)
+	sql := fmt.Sprintf("UPDATE  `%s`"+
+		" SET  realname = ? ,"+
+		"  headimg = ? ,"+
+		"  headimg2 =?  ,"+
+		"  mobile = ? , "+
+		"  role_id = ?, "+
+		"  is_vip=?,"+
+		"  status = ?,"+
+		"  edu_type = ? ,"+
+		"  edu_year = ? ,"+
+		"  exp = ? "+
+		//"  login_at = ?
+		"  WHERE  id  = ?", table)
+	res, err := boot.MysqlDb.DB.Exec(sql, thisuser.Realname, thisuser.Headimg, thisuser.Headimg2, thisuser.Mobile,
+		thisuser.RoleId, thisuser.IsVip, thisuser.Status, thisuser.EduType, thisuser.EduYear, thisuser.Exp, thisuser.ID) //time.Now(),
+	if err != nil {
+		utility.Debug(err.Error())
+		return -1, err
+	}
+	return res.RowsAffected()
+}
+
 
 ///////////////////// mongodb //////////////////////////////////
 
@@ -200,7 +257,7 @@ func (thisuser *UserModel) RedisSetMaxUserId(maxUserId int64) error {
 }
 
 func (thisuser *UserModel) RedisMaxUserIdIncr() (int64, error) {
-	return  boot.RedisDb.Client.Incr(config.REDIS_USER_MAXID).Result()
+	return boot.RedisDb.Client.Incr(config.REDIS_USER_MAXID).Result()
 }
 
 func (thisuser *UserModel) RedisLock() {
@@ -242,8 +299,6 @@ func (thisuser *UserModel) RedisJoinList() bool {
 /*消费到队列里面*/
 func (thisuser *UserModel) RedisConsumList() {
 
-
-
 	n, err := boot.RedisDb.Client.LLen(config.REDIS_USER_LIST).Result()
 	if err != nil {
 		utility.Debug("获取用户队列失败", err)
@@ -273,16 +328,17 @@ func (thisuser *UserModel) ToPb() pbs.UsersMod {
 	pbuserMod := pbs.UsersMod{}
 	pbuserMod.Id = thisuser.ID
 	pbuserMod.Member = thisuser.Member
+	pbuserMod.Realname = thisuser.Realname
+	pbuserMod.Headimg = thisuser.Headimg
+	pbuserMod.Headimg2 = thisuser.Headimg2
+	pbuserMod.Mobile = thisuser.Mobile
 	pbuserMod.RoleId = int32(thisuser.RoleId)
+	pbuserMod.Cid = int32(thisuser.Cid)
 	pbuserMod.IsVip = int32(thisuser.IsVip)
 	pbuserMod.Status = int32(thisuser.Status)
 	pbuserMod.EduType = int32(thisuser.EduType)
 	pbuserMod.EduYear = int32(thisuser.EduYear)
 	pbuserMod.Exp = int32(thisuser.Exp)
-	pbuserMod.Cid = int32(thisuser.Cid)
-	pbuserMod.Realname = thisuser.Realname
-	pbuserMod.Mobile = thisuser.Mobile
-	pbuserMod.Headimg = thisuser.Headimg
 	return pbuserMod
 }
 
@@ -291,14 +347,16 @@ func (thisuser *UserModel) PbToMod(pbuserMod pbs.UsersMod) {
 
 	thisuser.ID = pbuserMod.Id
 	thisuser.Member = pbuserMod.Member
+	thisuser.Realname = pbuserMod.Realname
+	thisuser.Headimg = pbuserMod.Headimg
+	thisuser.Headimg2 = pbuserMod.Headimg2
+	thisuser.Mobile = pbuserMod.Mobile
 	thisuser.RoleId = int(pbuserMod.RoleId)
+	thisuser.Cid = int(pbuserMod.Cid)
 	thisuser.IsVip = int(pbuserMod.IsVip)
 	thisuser.Status = int(pbuserMod.Status)
 	thisuser.EduType = int(pbuserMod.EduType)
 	thisuser.EduYear = int(pbuserMod.EduYear)
 	thisuser.Exp = int(pbuserMod.Exp)
-	thisuser.Cid = int(pbuserMod.Cid)
-	thisuser.Realname = pbuserMod.Realname
-	thisuser.Mobile = pbuserMod.Mobile
-	thisuser.Headimg = pbuserMod.Headimg
+
 }

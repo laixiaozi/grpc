@@ -42,6 +42,9 @@ func main() {
 	utility.Debug("the end..")
 }
 
+
+
+
 //测试接口
 func RpcClient() {
 	conn, _ := GetRpcConn()
@@ -49,16 +52,43 @@ func RpcClient() {
 	c := pbs.NewUserServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	usmod := GetUserMod()
-	if r, err := c.Test(ctx, &usmod); err != nil {
+
+	var usmod *pbs.UsersMod
+
+
+	if r, err := c.GetUserById(ctx, &pbs.UserId{Id: 7494755}); err != nil {
+		utility.Debug("gprc 请求失败" , err)
+	} else {
+		usmod = r
+	}
+	usmod.Realname ="嘿嘿测试"
+	usmod.Status = 1
+	usmod.Cid = 9
+	usmod.RoleId = 2
+	if r, err := c.UpdateUserById(ctx, usmod); err != nil {
 		utility.Debug("gprc 请求失败" , err)
 	} else {
 		utility.Debug(r.Member, r.Id)
 	}
 }
 
+
+func CreateUser() {
+	conn, _ := GetRpcConn()
+	defer conn.Close()
+	c := pbs.NewUserServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	usmod := GetUserMod(1)
+	if r, err := c.CreateUser(ctx, &usmod); err != nil {
+		utility.Debug("gprc 请求失败" , err)
+	} else {
+		utility.Debug(r.Id)
+	}
+}
+
 //获取用户id
-func GetUserById(uid int32) {
+func GetUserById(uid int64) {
 	conn, _ := GetRpcConn()
 	defer conn.Close()
 	c := pbs.NewUserServiceClient(conn)
@@ -81,11 +111,10 @@ func GetRpcConn() (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func GetUserMod() pbs.UsersMod {
-
+func GetUserMod(id int64) pbs.UsersMod {
 	//随机数
 	return pbs.UsersMod{
-		Id:          1,
+		Id:         id,
 		Member:      utility.GetRandNum(100000, 900000),
 		Realname:    "测试真是姓名",
 		Headimg:     "",

@@ -14,7 +14,15 @@ service UserService{
     rpc Test(pbs.UsersMod) returns (pbs.UsersMod){}
 
     //添加用户
-//    rpc CreateUser(pbs.UsersMod) returns (pbs.UserId){}
+    rpc CreateUser(pbs.UsersMod) returns (pbs.UserId){}
+
+    //搜索用户(真实姓名)
+    rpc SearchUserByName(pbs.UserName) returns (pbs.UserList){}
+
+    //更新用户信息
+    rpc UpdateUserById(pbs.UsersMod) returns (pbs.UsersMod){}
+
+
 }
 
 

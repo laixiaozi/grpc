@@ -19,11 +19,32 @@ func (s *UserServiceServer) SayHello(ctx context.Context, Point *pbs.HelloReques
 
 func (s *UserServiceServer) GetUserById(ctx context.Context, Point *pbs.UserId) (*pbs.UsersMod, error) {
 	userId := int64(Point.Id)
-	userMod := models.UserModel{}
-	userMod.MysqlGetUserById(userId)
+	userMod := models.UserModel{ID:userId}
+	userMod.MysqlGetUserById()
 	usmod := userMod.ToPb()
 	return &usmod, nil
 }
+
+func (s *UserServiceServer) CreateUser(ctx context.Context, Point *pbs.UsersMod) (*pbs.UserId, error) {
+	userMod := models.UserModel{}
+	userMod.PbToMod(*Point)
+	userMod.CreateUser()
+	um := pbs.UserId{}
+	um.Id = userMod.ID
+	return &um, nil
+}
+
+
+func (s *UserServiceServer) UpdateUserById(ctx context.Context, Point *pbs.UsersMod) (*pbs.UsersMod, error) {
+	userMod := models.UserModel{}
+	userMod.PbToMod(*Point)
+	userMod.UpDateUser()
+	um := userMod.ToPb()
+	return &um, nil
+}
+
+
+
 
 //这是一个测试 的rpc接口,
 //不用作逻辑业务,
@@ -32,7 +53,7 @@ func (s *UserServiceServer) GetUserById(ctx context.Context, Point *pbs.UserId) 
 func (s *UserServiceServer) Test(ctx context.Context, Point *pbs.UsersMod) (*pbs.UsersMod, error) {
 	userMod := models.UserModel{}
 	userMod.PbToMod(*Point)
-	userMod.CreateUser()
+	userMod.MysqlDelUser()
 	usmod := userMod.ToPb()
 	return &usmod, nil
 }

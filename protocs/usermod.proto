@@ -31,7 +31,7 @@ message UsersMod{
 }
 
 message UserId{
-     int32 Id = 1;
+     int64 Id = 1;
 }
 /*根据名称参数处理业务*/
 message UserName{
@@ -47,4 +47,8 @@ message userEdu{
 message UserOpenId{
      string OpenId = 1;
      string UnionId = 2;
+}
+
+message UserList{
+     repeated UsersMod um = 2;
 }
