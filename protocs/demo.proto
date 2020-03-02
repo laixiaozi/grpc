@@ -1,0 +1,18 @@
+syntax = "proto3";
+package  pbs;
+
+option go_package="pbs";
+
+//定义一个服务名称
+service Demo {
+    //定义一个基本的rpc方法
+    rpc SayHello(HelloRequest) returns (HelloResponse){}
+}
+
+message HelloRequest{
+    string name = 1;
+}
+
+message HelloResponse {
+    string message = 1;
+}

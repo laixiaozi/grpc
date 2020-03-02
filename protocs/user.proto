@@ -1,0 +1,35 @@
+syntax = "proto3";
+package pbs;
+// go_package 可以自定义包
+option go_package = "pbs";
+import "usermod.proto";
+
+service UserService{
+    //你好世界
+    rpc SayHello(HelloRequest) returns (HelloResponse){}
+    /*根据id获取用户信息*/
+    rpc GetUserById(pbs.UserId) returns (pbs.UsersMod){}
+
+    /*一个测试方法,用来测试逻辑*/
+    rpc Test(pbs.UsersMod) returns (pbs.UsersMod){}
+
+    //添加用户
+    rpc CreateUser(pbs.UsersMod) returns (pbs.UserId){}
+
+    //搜索用户(真实姓名)
+    rpc SearchUserByName(pbs.UserName) returns (pbs.UserList){}
+
+    //更新用户信息
+    rpc UpdateUserById(pbs.UsersMod) returns (pbs.UsersMod){}
+
+
+}
+
+
+message HelloRequest{
+    string name = 1;
+}
+
+message HelloResponse {
+    string message = 1;
+}
