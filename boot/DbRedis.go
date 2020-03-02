@@ -25,7 +25,6 @@ var OpenRedis = func() {
 	if pong, err := RedisDb.Client.Ping().Result(); err != nil {
 		utility.Abort("连接到redis失败:", err.Error(), pong)
 	}
-
 }
 
 func (thisdb *DbRedisInterface) Start() {

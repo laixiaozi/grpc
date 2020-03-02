@@ -43,7 +43,12 @@ func (s *UserServiceServer) UpdateUserById(ctx context.Context, Point *pbs.Users
 	return &um, nil
 }
 
-
+func (s *UserServiceServer) SearchUserByName(ctx context.Context, Point *pbs.UserName) (*pbs.UserList, error) {
+	userMod := models.UserModel{}
+	userMod.SearchUserByName(Point.Name)
+	um := &pbs.UserList{}
+	return um, nil
+}
 
 
 //这是一个测试 的rpc接口,

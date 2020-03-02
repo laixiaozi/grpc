@@ -92,12 +92,16 @@ func (thisuser *UserModel) UpDateUser() (int64, error) {
 	if e != nil {
 		return r, e
 	}
-	//todo 更新mongodb
 	if err := thisuser.MongoUpdateUser(); err != nil {
 		// 回退mysql的数据
 		r, e = OldUser.MysqlUpdateUser()
 	}
 	return r, e
+}
+
+// 查询，根据姓名
+func (thisuser *UserModel) SearchUserByName(userName string) {
+	thisuser.MongoSearchUserByName(userName)
 }
 
 ///////////////////// mysql //////////////////////////////////
@@ -218,6 +222,29 @@ func (thisuser *UserModel) MongoGetMaxUserId() int64 {
 	return maxid
 }
 
+func (thisuser *UserModel) MongoSearchUserByName(name string) {
+	filter := bson.D{
+		{"realname", bson.D{
+			{"$regex",  name },
+		  },
+		},
+	}
+   var skipNum int64 = 0
+   var limitNUm int64 = 5
+	opt := options.FindOptions{Skip: &skipNum ,Limit: &limitNUm }
+	 cur , err := boot.MongoDB.Collection.Find(context.TODO(), filter , &opt)
+	 if err != nil{
+	 	utility.Debug("查询用户姓名失败",err)
+	 }
+
+	 for cur.Next(context.TODO()){
+	 	 item := UserModel{}
+	 	 cur.Decode(&item)
+	 	utility.DebugInfo(item)
+	 }
+	utility.Debug(filter)
+}
+
 /*新增用户信息*/
 func (thisuser *UserModel) MongoCreateUser() error {
 
@@ -246,7 +273,6 @@ func (thisuser *UserModel) MongoCreateUser() error {
 
 /*新增用户信息*/
 func (thisuser *UserModel) MongoUpdateUser() error {
-
 	data := bson.D{
 		{
 			"$set",
@@ -274,7 +300,6 @@ func (thisuser *UserModel) MongoUpdateUser() error {
 		{"id", thisuser.ID},
 	}
 	_, err := boot.MongoDB.Collection.UpdateOne(context.TODO(), where, data)
-	utility.Debug("更新mongo数据", err)
 	return err
 }
 

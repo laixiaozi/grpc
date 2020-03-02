@@ -53,22 +53,19 @@ func RpcClient() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	var usmod *pbs.UsersMod
+	//var usmod *pbs.UsersMod
+	//
+	//if r, err := c.GetUserById(ctx, &pbs.UserId{Id: 7494755}); err != nil {
+	//	utility.Debug("gprc 请求失败" , err)
+	//} else {
+	//	usmod = r
+	//}
 
-
-	if r, err := c.GetUserById(ctx, &pbs.UserId{Id: 7494755}); err != nil {
+	uname := &pbs.UserName{Name:"张"}
+	if r, err := c.SearchUserByName(ctx, uname); err != nil {
 		utility.Debug("gprc 请求失败" , err)
 	} else {
-		usmod = r
-	}
-	usmod.Realname ="嘿嘿测试"
-	usmod.Status = 1
-	usmod.Cid = 9
-	usmod.RoleId = 2
-	if r, err := c.UpdateUserById(ctx, usmod); err != nil {
-		utility.Debug("gprc 请求失败" , err)
-	} else {
-		utility.Debug(r.Member, r.Id)
+		utility.Debug(r)
 	}
 }
 
